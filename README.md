@@ -1,9 +1,9 @@
 
 Breve descrição do grupo
 
-* Turno: [LM]XX
-* Grupo: YY
+* Turno: M08
+* Grupo: 05
 * Alunos:
-    - Aluno1 upZZZZZ 
-    - Aluno2 upZZZZZ
-    - Aluno3 upZZZZZ
+    - António Bezerra up201806854
+    - Gonçalo Alves up201806451
+    - Pedro Seixas up201806227
