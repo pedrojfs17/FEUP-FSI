@@ -1,5 +1,47 @@
 # Trabalho Realizado na Semana 4
 
+## CTF
+
+### Desafio 1
+
+After some time exploring the website, we found some important information about versions, plugins installed and the active accounts on the website:
+
+```
+Wordpress version: 5.8.1
+
+Installed Plugins and their versions:
+- WooCommerce plugin -> 5.7.1
+- Booster for WooCommerce plugin -> 5.4.3
+
+Active users:
+- admin
+- Orval Sanford
+
+Exploit: https://www.exploit-db.com/exploits/50299 -> Vulnerabilidade do Booster for WooCommerce
+flag{CVE-2021-34646}
+flag{e78dd1ba649539b0104483b1e9c37ff0}
+```
+
+With some research on CVE databases, we found a vulnerability in the Booster for WooComerce plugin, which made it possible for an attacker to log in as any user. The CVE was `CVE-2021-34646`, with a CVSS score of 9.8 (critical).
+
+Flag:
+```
+flag{CVE-2021-34646}
+```
+
+### Desafio 2
+
+With some research on the CVE, we found an exploit, https://www.exploit-db.com/exploits/50299, that we used to easily log in as the admin user in the website. Using this script with the id 1, which is usually the admin since is the first account created on the database, it generates 3 links that can be used to log in as the admin.
+
+After logging in, we just needed to go to http://ctf-fsi.fe.up.pt:5001/wp-admin/edit.php, and in the private file there was the flag.
+
+Flag:
+```
+flag{e78dd1ba649539b0104483b1e9c37ff0}
+```
+
+---
+
 ## Environment Variable and Set-UID Program Lab
 
 ### Task 1
@@ -102,7 +144,4 @@ int main() {
 ```
 
 This program was compiled with the command `gcc attack.c -o ls` which created an executable called `ls` in our working directory. Running the Set-UID program which had the root privileges, it will make a call to the `/bin/dash` which will then look for a `ls`, our executable, and will execute it. This `/bin/dash` has the countermeasure to avoid this kind of attacks, so it will run our executable with the user permissions and the output will be "You are not the root user!". Running the command given, to create a symbolic link from `/bin/sh` to `/bin/zsh`, and running the executable again, the new call will run our `ls` and the output will be "You are the root user!", showing that there is a vulnerability that is easily exploited by changing the PATH environment variable. 
-
-### Task 7
-
 
