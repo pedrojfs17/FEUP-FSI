@@ -16,10 +16,6 @@ Installed Plugins and their versions:
 Active users:
 - admin
 - Orval Sanford
-
-Exploit: https://www.exploit-db.com/exploits/50299 -> Vulnerabilidade do Booster for WooCommerce
-flag{CVE-2021-34646}
-flag{e78dd1ba649539b0104483b1e9c37ff0}
 ```
 
 With some research on CVE databases, we found a vulnerability in the Booster for WooComerce plugin, which made it possible for an attacker to log in as any user. The CVE was `CVE-2021-34646`, with a CVSS score of 9.8 (critical).
