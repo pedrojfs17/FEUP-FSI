@@ -71,6 +71,87 @@ Flag:
 flag{91b434959469afb533a5516651d74c98}
 ```
 
+### Formatted Canary
+
+Using `objdump -d formatted_canary` we can see that there is a function called `win` that we need to call in order to get the flag.
+
+The buffer size is 40 bytes and the function to read name reads 256 bytes.
+Canary is put in the stack before the loop, so we can probably read it. 
+
+Using ghidra we can decompile the binary and see what is the flow of the function: 
+![Decompiler with Ghidra](images/formatted_canary_1.png)
+
+Here we can see that according to Ghidra input is stored at offset `-0x38`. 
+
+With a cylcic input of just 64 bytes (`AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJKKKKLLLLMMMMNNNNOOOOPPPP`) we are able to find out two things in gdb. The first is that the `$rbp` has the value `MMMMNNNNOOOOPPPP`. This will be the return address of the `win` function that we need to call. For this function to be called, the program will check the canary, which has the value `KKKKLLLL`. This is where we will need to put our canary value. The payload will then be:
+
+```
+"A"*40 + canary + function_address
+```
+
+Using `info functions` inside GDB, we get the `win` function address which is: `0x000000000040077d`.
+
+
+In order to get the offset of the buffer in the stack we can use the input:
+```
+"AAAAAAAA" + ",%llx" * 30
+```
+
+The output will then be AAAAAAAA followed by 30 8-byte values read from the stack. When we find the value `4141414141414141` it means that is the start of our buffer, since we wrote 8 "A"s to the stack. With this, we found out that buffer is in offset of 8 longs, so canary is in offset 13.
+
+We can get the canary by changing the name to `%13$llx` and printing it. After getting this value of the canary, we can then build our payload that will call the desired function.
+
+Flag:
+```
+flag{th1s_p00r_c4nary_w4s_k1ll3d_by_4_fmt_str1ng}
+```
+
+### Secret
+
+For this CTF we needed to use a simple ROP chain to get the flag. Using `objdump -t simple_rop` we can see that there is a variable called flag on the heap with the address `0x0804a040`. 
+
+Since there is no format string vulnerabilities, we cannot just print the value of the flag, but instead, we can use a buffer overflow attack, to change the return address of the function, to return to some code we want. Since we are using the libc function `puts` to print a line to the console, we can get the function address from gdb, which is `0x08048390`.
+
+In order to successfully call the puts function, we need to leave the stack in the state that it would be if there was actually a puts call. This means that we need to put in the stack the main return address, and the argument to puts. This argument is a pointer to a string, which is very usefull since we already have the location of where the flag string is.
+
+After finding out that the `$esp` offset was 28 bytes, we could get the flag sending the following payload:
+
+```
+"A" * 20 + puts + main + flag
+```
+
+With this payload, we can successfully call the puts function when returning to main and the flag is printed.
+
+Flag:
+```
+flag{3asy_r0p_3asy_l1fe}
+```
+
+When trying this challenge, we tried to solve it in another way, which was to use a ret2libc attack in order to create a shell in the server. In order to get this, we needed to get the base of the libc library. To get this address, we could use the same method as the previous, but instead of printing the flag, we would print the libc puts address. To get this address we need to call the puts function but in the argument we need to pass the puts address of the global offset table (GOT) which points to the real address of the puts function in the libc library. Using the command `got` inside gdb, we get the puts@GOT value which is `0x804a010`. 
+
+With the following payload we are capable of leaking the puts address and return to the beginning of the main function:
+
+```
+"A" * 20 + puts@plt + main + puts@got
+```
+
+After building the first stage of the payload, we need to check what is the version of the libc, in order to get the offset needed to call the system function. The value of the puts is `0xf7dedcd0` so, using the website https://libc.nullbyte.cat/ and putting in the query the values `puts` and the last 3 bytes (cd0), we can get the version of the libc library which is: libc6_2.31-0ubuntu9.3_i386.
+
+Knowing the library, we get the offsets of the usefull positions:
+
+![Offsets](images/secret-1.png)
+
+With these offsets we can calculate the correct position of each function we need according to the position of the puts. After that, we can then build our payload to run the system function with a `\bin\sh` string as argument. The following payload was used to open a shell on the server:
+
+```
+"A" * 20 + system + "AAAA" + str_bin_sh
+```
+
+With the shell, and using `cat flag.txt` we get the following flag:
+```
+flag{congratulations!-this-is-not-the-intended-way-to-solve-this-challenge;)}
+```
+
 ---
 
 ## Format String Attack Lab
