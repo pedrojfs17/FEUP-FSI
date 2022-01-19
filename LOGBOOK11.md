@@ -638,5 +638,88 @@ To solve this, we need to add our CA to the trusted authorities of the browser. 
 
 ### Task 5
 
+With the server setup on `https://www.m08go5.com` and everything up and running we can then add the following entry to `/etc/hosts` file:
+
+```
+10.9.0.80 www.facebook.com
+```
+
+When joining Facebook, the page will try to load our server, but as our certificate is not valid, the page is not loaded.
+
 ### Task 6
 
+In order to successfully perform a MITM attack, we need to create the certificate to include the `www.facebook.com` address. This can be done with the following command:
+
+```
+[01/19/22]seed@VM:~/.../Labsetup$ openssl req -newkey rsa:2048 -sha256 -keyout server.key -out server.csr -subj "/CN=www.facebook.com/O=m08g05 Inc./C=PT" -passout pass:dees -addext "subjectAltName = DNS:www.facebook.com, DNS:www.m08g05.com, DNS:www.m08g05A.com, DNS:www.m08g05B.com"
+Generating a RSA private key
+.+++++
+..................+++++
+writing new private key to 'server.key'
+-----
+```
+
+After that, we need to generate the certificate itself, with the following command:
+
+```
+[01/19/22]seed@VM:~/.../Labsetup$ openssl ca -config myCA_openssl.cnf -policy policy_anything -md sha256 -days 3650 -in server.csr -out server.crt -batch -cert ca.crt -keyfile ca.key
+Using configuration from myCA_openssl.cnf
+Enter pass phrase for ca.key:
+Check that the request matches the signature
+Signature ok
+Certificate Details:
+        Serial Number: 4100 (0x1004)
+        Validity
+            Not Before: Jan 19 09:09:23 2022 GMT
+            Not After : Jan 17 09:09:23 2032 GMT
+        Subject:
+            countryName               = PT
+            organizationName          = m08g05 Inc.
+            commonName                = www.facebook.com
+        X509v3 extensions:
+            X509v3 Basic Constraints: 
+                CA:FALSE
+            Netscape Comment: 
+                OpenSSL Generated Certificate
+            X509v3 Subject Key Identifier: 
+                63:31:9C:E2:BD:50:70:C4:05:12:43:3C:ED:A1:30:64:AC:D9:5D:48
+            X509v3 Authority Key Identifier: 
+                keyid:1C:DC:D3:1D:D5:33:C2:C4:0D:EF:1F:A5:E6:F6:79:A5:4D:0A:25:A7
+
+            X509v3 Subject Alternative Name: 
+                DNS:www.facebook.com, DNS:www.m08g05.com, DNS:www.m08g05A.com, DNS:www.m08g05B.com
+Certificate is to be certified until Jan 17 09:09:23 2032 GMT (3650 days)
+
+Write out database with 1 new entries
+Data Base Updated
+```
+
+With the certificate created, we need to restart our server in order to successfully perform the attack.
+After restarting the server with the new certificates, and updating the ssl config file to:
+
+```
+<VirtualHost *:443> 
+    DocumentRoot /var/www/m08g05
+    ServerName www.facebook.com
+    ServerAlias www.m08g05.com
+    ServerAlias www.m08g05A.com
+    ServerAlias www.m08g05B.com
+    DirectoryIndex index.html
+    SSLEngine On 
+    SSLCertificateFile /certs/m08g05.crt
+    SSLCertificateKeyFile /certs/m08g05.key
+</VirtualHost>
+
+<VirtualHost *:80> 
+    DocumentRoot /var/www/m08g05
+    ServerName www.facebook.com
+    DirectoryIndex index_red.html
+</VirtualHost>
+
+# Set the following gloal entry to suppress an annoying warning message
+ServerName localhost
+```
+
+we can successfully join `www.facebook.com` and see our webiste load with https certificate.
+
+![Successful MITM Attack](images/task6-crypto-seed-lab.png)
